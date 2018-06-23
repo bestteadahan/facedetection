@@ -1,0 +1,50 @@
+<html>
+
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+</head>
+
+<body>
+    <label for="query">Find hot product</label>
+    <input type="text" name="query" id="query">
+    <button id="submit">Find!</button>
+    <div id="result"></div>
+</body>
+
+<script>
+    var list
+    $.getJSON("products.json", (json) => {
+        list = json.data
+    })
+
+    $(document).ready(() => {
+
+        function getResult(category) {
+            return new Promise((resolve, reject) => {
+                let result = list.filter(item => (item.category == category))
+                resolve(result)
+            })
+        }
+
+        $("#submit").click(function () {
+
+            getResult($("#query").val())
+                .then(result => {
+                    let products = result.hot
+
+                    products.forEach(product => {
+                        console.log(product)
+                    });
+                })
+            // let result = list.filter(item=>(item.category==$("#query").val()))
+            // $("#result").text(JSON.stringify(result))
+            // let products = result.hot
+
+            // products.forEach(product => {
+            //     console.log(product)
+            // });
+        })
+    })
+</script>
+
+</html>

@@ -1,0 +1,40 @@
+//- 生成qrcode
+
+extends layout
+
+block content
+
+    include ./navbar.pug
+
+    .form-row.align-items-center
+        .col-auto
+            input#input.form-control(type='text' placeholder="Type some words")
+        .col-auto 
+            button#generate.btn.btn-primary Generate QR Code 
+        
+    div
+        #qrcode.my-5
+        p#url
+
+    script.
+
+        $(document).ready(function() {
+
+            $("#input").val('')
+
+            $("#generate").click(function(){
+
+                let url = `${location.host}/${$("#input").val()}`
+                //- new QRCode(document.getElementById("qrcode"), url);
+                var qrcode = new QRCode(document.getElementById("qrcode"), {
+                    //- text: "http://jindo.dev.naver.com/collie",
+                    width: 200,
+                    height: 200,
+                    //- colorDark : "#000000",
+                    //- colorLight : "#ffffff",
+                })
+                qrcode.makeCode(url)
+                $("#url").text(url)
+
+            })
+        })

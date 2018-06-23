@@ -1,0 +1,183 @@
+extends layout
+
+block content
+
+    style.
+        #previewhead, #previewpassport, #canvashead {
+            margin: 20px auto 0px;
+        }
+
+    include ./navbar.pug
+
+    h4 Upload images of head shot and passport:
+    form#reportForm(enctype="multipart/form-data")
+        .row
+            .col
+                .custom-file
+                    label.custom-file-label(for='head') Choose your head shot...
+                    input#head.custom-file-input(name="head" type="file" accept="image/*")
+                img#previewhead
+                h4 crop head:
+                canvas#canvashead
+            
+            .col
+                .custom-file
+                    label.custom-file-label(for='passport') Choose your passport...
+                    input#passport.custom-file-input(name="passport" type="file" accept="image/*")
+                img#previewpassport
+
+    button#crop.btn.btn-primary Crop!
+    button#submit.btn.btn-info Submit
+
+    script.
+
+        $(document).ready(function() {
+
+            var checkBtn = $("#crop")
+            var submit = $("#submit")
+            var f_width = 210, f_height = 270 // Final w & h of canvas
+            checkBtn.hide()
+
+            $("#head, #passport").change(function(){
+                let files = this.files
+                if (files && files.length >= 1) {
+                    $.map(files, file => {
+                        let reader = new FileReader()
+                        reader.onload = () => { 
+                            showPreviewImg(reader.result, file.name, `#preview${this.id}`)
+                        }
+                        reader.readAsDataURL(file)
+                    })
+                }
+            })
+
+            //- 新增<img>
+            function showPreviewImg(src, fileName, previewDiv) {
+                $(`${previewDiv} + p`).remove()
+                let image = $(previewDiv)[0]
+                //- image.onloadend = () => { checkBtn.show() }
+                image.width = f_width
+                image.name = fileName
+                image.src = src
+                $(previewDiv).after(`<p>File: ${fileName}`)
+                checkBtn.show()
+            }
+
+            submit.click(() => {
+
+                let imgBase64 = { 
+                    //- head: $('#canvashead')[0].toDataURL(),
+                    head: $('#previewhead')[0].src,
+                    passport: $('#previewpassport')[0].src
+                }
+
+                //- console.dir(imgBase64)
+
+                $.ajax({
+                    type: "POST",
+                    url: "/",
+                    data: imgBase64
+                }).done(data => {
+                    console.dir({
+                        simularity: 1-parseFloat(data),
+                        difference: parseFloat(data)
+                    });
+                })
+            })
+
+            checkBtn.click(function(){
+
+                let img = $('#previewhead')[0]
+                detectFace(img)
+                    .then(face => {
+                        let boost = {
+                            x: face.x,
+                            y: face.y,
+                            width: face.width,
+                            height: face.height,
+                            weight: 1
+                        }
+                        console.log('Get face boost area!')
+                        console.dir(boost)
+                        cropFace(boost, img)
+                    })
+                    .catch(err=>console.log(err))
+            })
+            
+            //- 偵測照片人臉
+            function detectFace(img) {
+                return new Promise((resolve,reject)=>{
+                    $(img).faceDetection({
+                        complete: (faces) => {
+                            if (faces === false) {
+                                reject('No faces are detected')
+                            } else {
+                                console.log(`Detected ${faces.length} faces`)
+                                //- console.dir(faces)
+                                resolve(faces[0])
+                            }
+                        },
+                        error: (code, err) => { reject(err) }
+                    })
+                })
+            }
+
+            //- 裁切
+            function cropFace(boost, image) {
+                let cropOptions = {
+                        width: f_width,
+                        height: f_height,
+                        boost: [boost]
+                    }
+                smartcrop.crop(image, cropOptions)
+                    .then((result) => {
+                        console.log('Croped face area')
+                        //- console.dir(result.topCrop)
+                        drawCanvas(image, result.topCrop)
+                            .then((canvas) => checkRGB(canvas))
+                            .catch(err => console.log(err))
+                    })
+            }
+            
+            //- 繪製canvas
+            function drawCanvas(image, cropedResult) {
+                let data = cropedResult
+                //- let id = image.id.slice(8) // 扣掉 "#preview"
+                let canvas = $('#canvashead')[0]
+                let ctx = canvas.getContext('2d')
+                canvas.width = f_width
+                canvas.height = f_height
+                return new Promise((resolve,reject)=>{
+                    ctx.drawImage(image, data.x, data.y, data.width, data.height, 0, 0, canvas.width, canvas.height)
+                    if (ctx.getImageData(0,0,f_width,f_height)) {
+                        resolve(canvas)
+                    } else {
+                        reject('Not ready yet')
+                    }
+                })
+            }
+
+            function checkRGB(canvas) {
+                let si = new SimpleImage(canvas)
+                let totalPixel = f_width*f_height
+                let rgbset = new Set()
+                let pixel
+                for (let x =0 ; x < f_width ; x++) {
+                    for (let y = 0 ; y < f_height ; y++) {
+                        pixel = Object.values(si.getRGB(x,y)).map(val=>val.toString().padStart(3,'0')).join('')
+                        rgbset.add(pixel)
+                        //- console.log(rgbset.size)
+                    }
+                }
+                console.log(`${rgbset.size} / ${totalPixel}`)
+                
+                let ratio =  rgbset.size/totalPixel
+
+                if (ratio > 0.55 || ratio < 0.20) {
+                    console.log(`Grayscale Ratio: ${ratio} => Fake`)
+                } else {
+                    console.log(`Grayscale Ratio: ${ratio} => Real`)
+                }
+            }
+
+        })

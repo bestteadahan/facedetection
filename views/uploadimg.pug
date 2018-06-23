@@ -1,0 +1,17 @@
+.d-flex
+    h5 MousePosition:
+    h5#x.mx-3
+    h5#y
+
+.row
+    .col-6
+        h4 Upload image:
+        form#reportForm(enctype="multipart/form-data")
+            .custom-file
+                label.custom-file-label(for='upimg') Choose Image...
+                input#upimg.custom-file-input(name="upimg" type="file" accept="image/*")
+    .col-6
+        h4 Or drop image here:
+        div#dragArea
+
+button#check.btn.btn-primary.my-2 Check

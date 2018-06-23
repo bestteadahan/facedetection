@@ -1,0 +1,41 @@
+doctype html
+html
+    head
+        title #{title}
+        meta(charset="utf-8")
+        meta(name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no")
+        //- 思源黑體
+        link(rel="stylesheet" href="https://fonts.googleapis.com/earlyaccess/notosanstc.css") 
+        link(rel="stylesheet" href="/stylesheets/style.css")
+        
+        link(rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css")
+        
+        //- Bootstrap (CSS)
+        link(rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css")
+
+        //- JQ
+        script(src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js")
+
+        //- Bootstrap (js)
+        script(src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js")
+
+        script(src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.3/umd/popper.min.js")
+
+        script(src="https://cdn.jsdelivr.net/npm/moment@2.22.1/min/moment.min.js")
+        //- script(src="https://cdnjs.cloudflare.com/ajax/libs/camanjs/4.0.0/caman.full.min.js")
+        //- 獲取畫素RGB值
+        script(src="/javascripts/SimpleImage.js")
+        //- 圖片裁切
+        script(src="/javascripts/SmartCrop.js")
+        //- 臉部偵測
+        script(src="/javascripts/jquery.facedetection.js")
+        //- //- 擷取圖片主色調
+        //- script(src="/javascripts/Vibrant.js")
+        //- qr code產生器
+        script(src="/javascripts/qrcode.min.js")
+        //- 抓取文字圖片
+        script(src='https://cdn.rawgit.com/naptha/tesseract.js/1.0.10/dist/tesseract.js')
+
+
+    body
+        block content

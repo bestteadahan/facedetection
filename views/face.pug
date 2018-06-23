@@ -1,0 +1,188 @@
+extends layout
+
+block content
+
+    include ./navbar.pug
+    include ./uploadimg.pug
+
+    .row
+        .col-6
+            h4 Preview(img):
+            div#previewDiv
+        .col-6
+            h4 Canvas:
+            canvas#canvas
+
+    script.
+
+        $(document).ready(function() {
+
+            var image = $("#img")
+            var canvas = $("#canvas")[0]
+            var ctx = canvas.getContext('2d')
+            var checkBtn = $("#check")
+            var f_width = 210, f_height = 270 // Final w & h of canvas
+
+            checkBtn.hide()
+
+            document.onmousemove = function(e) {
+                $("#x").text(e.clientX)
+                $("#y").text(e.clientY)
+            }
+
+            //- 在拖曳時就停止瀏覽器開圖檔
+            $("#dragArea").on("dragover", function(e) {
+                e.preventDefault()
+            })
+
+            $("#dragArea").on("drop", function(e) {
+                e.preventDefault()
+                e.stopPropagation()
+                e.originalEvent.dataTransfer.getData("image/*")
+                let files = e.originalEvent.dataTransfer.files;
+                console.dir(e)
+                $("#previewDiv").empty()
+                prepareToPreview(files)
+            })
+
+            $("#upimg").change(function(){
+                //- 清空當下預覽
+                $("#previewDiv").empty()
+                prepareToPreview(this.files)
+            })
+
+            //- 檢查檔案、讀取、加入<img>
+            function prepareToPreview(files) {
+                $(".rect").remove()
+                if (files && files.length >= 1) {
+                    $.map(files, file=>{
+                        //- console.dir(file)
+                        convertFile(file)
+                            .then(data => {
+                                //- console.log(data)
+                                showPreviewImg(data, file.name)
+                            })
+                            .catch(err => console.log(err))
+                    })
+                }
+            }
+
+            //- 讀取檔案
+            function convertFile(file) {
+                return new Promise((resolve,reject)=>{
+                    let reader = new FileReader()
+                    reader.onload = () => { resolve(reader.result) }
+                    reader.onerror = () => { reject(reader.error) }
+                    //- Return Base64 encoded string, use atob(result.split(',')[1]) to decode
+                    reader.readAsDataURL(file)
+                    //- Return an ArrayBuffer object
+                    //- reader.readAsArrayBuffer(file)
+                })
+            }
+
+            //- 新增<img>
+            function showPreviewImg(src,fileName) {
+                let prvimg = new Image(f_width)
+                prvimg.name = fileName
+                prvimg.src = src
+                prvimg.id = 'img'
+                prvimg.onloadend = () => { checkBtn.show() }
+                $("#previewDiv").append(prvimg).append(`<p>File: ${fileName}`)
+            }
+
+            checkBtn.click(function(){
+                detectFace()
+                    .then(face => {
+                        let rect = $(document.createElement('div'))
+                            .attr('style',`width:${face.width}px;height:${face.height}px;left:${face.positionX}px;top:${face.positionY}px`)
+                            .addClass('rect')
+                        image.after(rect)
+
+                        let boost = {
+                            x: face.x,
+                            y: face.y,
+                            width: face.width,
+                            height: face.height,
+                            weight: 1
+                        }
+                        console.log('Get face boost area!')
+                        console.dir(boost)
+                        cropFace(boost)
+                    })
+                    .catch(err=>console.log(err))
+            })
+            
+            //- 偵測照片人臉
+            function detectFace() {
+                return new Promise((resolve,reject)=>{
+                    $("#img").faceDetection({
+                        complete: (faces) => {
+                            if (faces === false) {
+                                reject('No faces are detected')
+                            } else {
+                                console.log(`Detected ${faces.length} faces`)
+                                //- console.dir(faces)
+                                resolve(faces[0])
+                            }
+                        },
+                        error: (code, err) => { reject(err) }
+                    })
+                })
+            }
+
+            //- 裁切
+            function cropFace(boost) {
+                let image = $("#img")[0]
+                let cropOptions = {
+                        width: f_width,
+                        height: f_height,
+                        boost: [boost]
+                    }
+                smartcrop.crop(image, cropOptions)
+                    .then((result) => {
+                        console.log('Croped face area')
+                        //- console.dir(result.topCrop)
+                        drawCanvas(result.topCrop).then(()=>checkRGB()).catch(err=>console.log(err))
+                    })
+            }
+            
+            //- 繪製canvas
+            function drawCanvas(cropedResult) {
+                let image = $("#img")[0]
+                let data = cropedResult
+                canvas.width = f_width
+                canvas.height = f_height
+                return new Promise((resolve,reject)=>{
+                    ctx.drawImage(image, data.x, data.y, data.width, data.height, 0, 0, canvas.width, canvas.height)
+                    if (ctx.getImageData(0,0,f_width,f_height)) {
+                        resolve()
+                    } else {
+                        reject('Not ready yet')
+                    }
+                })
+            }
+
+            function checkRGB() {
+                let si = new SimpleImage(canvas)
+                let totalPixel = f_width*f_height
+                let rgbset = new Set()
+                let pixel
+                for (let x =0 ; x < f_width ; x++) {
+                    for (let y = 0 ; y < f_height ; y++) {
+                        pixel = Object.values(si.getRGB(x,y)).map(val=>val.toString().padStart(3,'0')).join('')
+                        rgbset.add(pixel)
+                        //- console.log(rgbset.size)
+                    }
+                }
+                console.log(`${rgbset.size} / ${totalPixel}`)
+                
+                let ratio =  rgbset.size/totalPixel
+
+                if (ratio > 0.55 || ratio < 0.20) {
+                    console.log(`Grayscale Ratio: ${ratio} => Fake`)
+                } else {
+                    console.log(`Grayscale Ratio: ${ratio} => Real`)
+                }
+            }
+
+        })

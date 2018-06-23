@@ -1,0 +1,105 @@
+extends layout
+
+block content
+
+    include ./navbar.pug
+
+    .row
+        .col-6
+            h4 Upload image:
+            form#reportForm(enctype="multipart/form-data")
+                .custom-file
+                    label.custom-file-label(for='upimg') Choose Image...
+                    input#upimg.custom-file-input(name="upimg" type="file" accept="image/*")
+            .progress.mt-5
+                .progress-bar(role="progressbar")
+
+        .col-6
+            h4 Preview:
+            img#previewImg
+
+    button#check.btn.btn-primary Check
+    
+    #imgtext
+
+    script.
+
+        $(document).ready(function() {
+
+            var previewImg = $('#previewImg')
+            var imgtext = $("#imgtext")
+            var progress = $('.progress-bar')
+            var checkBtn = $("#check")
+            var f_width = 300
+
+            checkBtn.hide()
+
+            $("#upimg").change(function(){
+                previewImg.empty()
+
+                let files = this.files
+                if (files && files.length >= 1) {
+                    $.map(files, file => {
+                        let reader = new FileReader()
+                        reader.onload = () => { 
+                            showPreviewImg(reader.result, file.name)
+                        }
+                        reader.readAsDataURL(file)
+                    })
+                }
+
+                checkBtn.show()
+            })
+
+            //- 新增<img>
+            function showPreviewImg(src, fileName) {
+                previewImg.after(`<p>File: ${fileName}`)
+
+                let prvimg = previewImg[0]
+                prvimg.name = fileName
+                prvimg.src = src
+                prvimg.width = f_width
+            }
+
+            //- 偵測照片人臉
+            function detectFace() {
+                return new Promise((resolve,reject)=>{
+                    previewImg.faceDetection({
+                        complete: (faces) => {
+                            if (faces === false) {
+                                reject('No faces are detected')
+                            } else {
+                                console.log(`Detected ${faces.length} faces`)
+                                resolve()
+                            }
+                        },
+                        error: (code, err) => { reject(err) }
+                    })
+                })
+            }
+
+            function analyzeText() {
+                imgtext.text('') 
+                Tesseract.recognize(previewImg[0], {
+                    lang: 'eng',
+                    assume_fixed_pitch_char_segment: 1,
+                    words_default_fixed_limit: 1,
+                    language_model_min_compound_length: 7
+                })
+                .progress(p => {
+                    if (p.status == "recognizing text") progress.css('width',`${p.progress*100}%`).text('Analyzing...')
+                })
+                .then(result => {
+                        imgtext.text(result.text)
+                        //- console.dir(result)
+                        let recognizedText = result.text
+                        if (recognizedText.includes('PASSPORT')) console.log(true,result.confidence)
+                        else console.log(false,result.confidence)
+                    })
+            }
+
+            checkBtn.click(function(){
+                detectFace().then(()=>analyzeText()).catch(err=>console.log(err))
+            })
+
+        })
